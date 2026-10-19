@@ -1,0 +1,8 @@
+# Versioner som testsviten körts mot (Python 3.11+)
+fastapi==0.150.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+sqlalchemy==2.1.5
+alembic==1.20.0
+pandas==3.0.6
+numpy==2.5.4
