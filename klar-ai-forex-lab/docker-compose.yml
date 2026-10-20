@@ -2,11 +2,11 @@
 services:
   backend:
     build: ./backend
-    env_file:
-      - path: .env
-        required: false
     environment:
       KLAR_DATA_DIR: /data
+      # Läses från .env bredvid denna fil om den finns (behövs bara för signerad riskkonfiguration)
+      KLAR_RISK_SIGNING_KEY: ${KLAR_RISK_SIGNING_KEY:-}
+      GIT_SHA: ${GIT_SHA:-}
     volumes:
       - ./data:/data
     ports:

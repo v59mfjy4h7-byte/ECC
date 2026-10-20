@@ -8,14 +8,15 @@ Status: **M2 – backtest + risk** klar (se [PLAN.md](PLAN.md) för arkitektur o
 
 ## Starta
 
-### Med Docker (ett kommando)
+### Med Docker Desktop (enklast)
 
-```bash
-cd klar-ai-forex-lab
-docker compose up --build
-```
+1. Starta Docker Desktop och vänta tills det står **Engine running**.
+2. Dubbelklicka på `start-windows.bat` (Windows) eller `start-mac.command` (Mac) i mappen
+   `klar-ai-forex-lab`. Första gången tar bygget några minuter; sedan öppnas <http://localhost:8080>.
+3. Därefter startar och stoppar du labbet under **Containers** i Docker Desktop.
 
-Öppna <http://localhost:8080>. Data och databas sparas i `data/`.
+Från en terminal i mappen `klar-ai-forex-lab` går det också: `docker compose up -d --build`.
+Data och databas sparas i `data/`.
 
 ### Utan Docker (två terminaler)
 
