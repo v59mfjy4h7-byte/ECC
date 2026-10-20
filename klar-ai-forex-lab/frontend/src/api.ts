@@ -121,6 +121,91 @@ export interface ImportResult {
   created: boolean;
 }
 
+export interface ParamSpec {
+  name: string;
+  kind: "int" | "float";
+  default: number;
+  low: number;
+  high: number;
+  description: string;
+}
+
+export interface StrategyInfo {
+  key: string;
+  title: string;
+  description: string;
+  params: ParamSpec[];
+}
+
+export interface LabConfig {
+  account: { starting_capital: number; currency: string; usd_to_account: number };
+  costs: {
+    spread_pips: number;
+    slippage_pips: number;
+    commission_usd_per_100k: number;
+    swap_long_pips_per_night: number;
+    swap_short_pips_per_night: number;
+  };
+  risk: Record<string, number>;
+}
+
+export interface ConfigResponse {
+  config: LabConfig | null;
+  status: { source: "default" | "signed" | "invalid"; signed_by?: string | null; signed_at?: string | null };
+  error: string | null;
+  ceilings: Record<string, number>;
+  floors: Record<string, number>;
+  kill_switch_active: boolean;
+}
+
+export interface BacktestMetrics {
+  trades: number;
+  low_sample: boolean;
+  win_rate: number | null;
+  avg_win: number | null;
+  avg_loss: number | null;
+  expectancy: number | null;
+  total_return: number | null;
+  max_drawdown: number | null;
+  profit_factor: number | null;
+  sharpe: number | null;
+  return_to_maxdd: number | null;
+  est_costs: number | null;
+  swap: number | null;
+  net_pnl: number | null;
+  halted: boolean;
+  rejected_orders: number;
+}
+
+export interface Trade {
+  direction: string;
+  entry_time: string;
+  exit_time: string;
+  entry: number;
+  exit: number;
+  units: number;
+  planned_risk: number;
+  pnl: number;
+  r_multiple: number;
+  swap: number;
+  exit_reason: string;
+}
+
+export interface OrderDecision {
+  time: string;
+  strategy: string;
+  direction: string;
+  approved: boolean;
+  reason: string;
+  units: number;
+  planned_rr: number;
+}
+
+export interface EquityPoint {
+  time: string;
+  equity: number;
+}
+
 export const api = {
   system: () => request<SystemInfo>("/system"),
   datasets: () => request<Dataset[]>("/datasets"),
@@ -135,4 +220,19 @@ export const api = {
   synthetic: (n_bars: number, seed: number) => postJson<ImportResult>("/datasets/synthetic", { n_bars, seed }),
   experiments: () => request<Experiment[]>("/experiments"),
   audit: () => request<AuditEntry[]>("/audit"),
+  strategies: () => request<StrategyInfo[]>("/strategies"),
+  config: () => request<ConfigResponse>("/config"),
+  runBaseline: (dataset_id: number) => postJson<Experiment[]>("/backtests", { dataset_id }),
+  openTest: (dataset_id: number, key: string) =>
+    postJson<Experiment[]>("/backtests", {
+      dataset_id,
+      strategies: [{ key }],
+      periods: ["test"],
+      confirm_test_access: true,
+    }),
+  testAccess: (dataset_id: number) => request<Record<string, boolean>>(`/backtests/test-access?dataset_id=${dataset_id}`),
+  trades: (id: number) => request<Trade[]>(`/experiments/${id}/artifacts/trades`),
+  decisions: (id: number) => request<OrderDecision[]>(`/experiments/${id}/artifacts/decisions`),
+  equity: (id: number) => request<EquityPoint[]>(`/experiments/${id}/artifacts/equity`),
+  setKillSwitch: (active: boolean) => postJson<{ kill_switch_active: boolean }>("/kill-switch", { active, confirm: !active }),
 };

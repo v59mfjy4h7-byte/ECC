@@ -41,6 +41,21 @@ class Settings:
         """Normaliserade, validerade kopior av importerade dataset (namn = SHA-256)."""
         return self.data_dir / "datasets"
 
+    @property
+    def config_dir(self) -> Path:
+        """Signerad riskkonfiguration (risk_limits.json)."""
+        return self.data_dir / "config"
+
+    @property
+    def runs_dir(self) -> Path:
+        """Artefakter per experiment: affärer, beslut, equity-kurva."""
+        return self.data_dir / "runs"
+
+    @property
+    def kill_switch_file(self) -> Path:
+        """Finns filen öppnas inga nya affärer."""
+        return self.data_dir / "STOP"
+
     def ensure_dirs(self) -> None:
-        for d in (self.data_dir, self.incoming_dir, self.datasets_dir):
+        for d in (self.data_dir, self.incoming_dir, self.datasets_dir, self.config_dir, self.runs_dir):
             d.mkdir(parents=True, exist_ok=True)

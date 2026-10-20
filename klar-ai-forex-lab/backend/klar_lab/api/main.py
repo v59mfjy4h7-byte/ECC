@@ -1,9 +1,8 @@
 """FastAPI-app. Starta med: uvicorn klar_lab.api.main:app --reload (i backend/)."""
-from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -16,7 +15,11 @@ from ..datasets import downsample_ohlc, load_bars, store_dataset
 from ..db import make_engine, make_sessionmaker, run_migrations
 from ..models import AuditLog, Dataset, Experiment
 from ..registry import code_version, list_experiments
+from ..risk import RiskConfigError, load_lab_config
 from ..settings import APP_VERSION, Settings
+from .deps import db, get_dataset
+from .serializers import audit_out, dataset_out, experiment_out
+from .lab import router as lab_router
 
 
 class SyntheticRequest(BaseModel):
@@ -26,29 +29,6 @@ class SyntheticRequest(BaseModel):
 
 class ImportRequest(BaseModel):
     filename: str
-
-
-def dataset_out(ds: Dataset) -> dict:
-    return {
-        "id": ds.id, "name": ds.name, "source": ds.source, "sha256": ds.sha256, "synthetic": ds.synthetic,
-        "symbol": ds.symbol, "timeframe_minutes": ds.timeframe_minutes, "bars": ds.bars,
-        "start": ds.start.isoformat(), "end": ds.end.isoformat(), "validation": ds.validation,
-        "created_at": ds.created_at.isoformat(),
-    }
-
-
-def experiment_out(e: Experiment) -> dict:
-    return {
-        "id": e.id, "kind": e.kind, "name": e.name, "status": e.status, "dataset_id": e.dataset_id,
-        "data_hash": e.data_hash, "data_scope": e.data_scope, "synthetic_data": e.synthetic_data,
-        "code_version": e.code_version, "params": e.params, "seed": e.seed, "metrics": e.metrics,
-        "decision": e.decision, "decision_reason": e.decision_reason, "error": e.error,
-        "created_at": e.created_at.isoformat(), "finished_at": e.finished_at.isoformat() if e.finished_at else None,
-    }
-
-
-def audit_out(a: AuditLog) -> dict:
-    return {"id": a.id, "ts": a.ts.isoformat(), "actor": a.actor, "action": a.action, "details": a.details}
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -61,6 +41,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         run_migrations(settings.db_url)
         engine = make_engine(settings.db_url)
         app.state.sessionmaker = make_sessionmaker(engine)
+        app.state.settings = settings
+        try:
+            app.state.lab_config, app.state.lab_config_status = load_lab_config(
+                settings.config_dir / "risk_limits.json")
+            app.state.lab_config_error = None
+        except RiskConfigError as exc:  # systemet startar men vägrar köra backtester
+            app.state.lab_config, app.state.lab_config_status = None, {"source": "invalid"}
+            app.state.lab_config_error = str(exc)
         yield
         engine.dispose()
 
@@ -68,27 +56,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
                        allow_methods=["GET", "POST"], allow_headers=["*"])
 
-    def db(request: Request) -> Iterator[Session]:
-        session = request.app.state.sessionmaker()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
     @app.exception_handler(DataValidationError)
     async def _validation_error(_req, exc: DataValidationError):
         return JSONResponse(status_code=422, content={
             "detail": str(exc), "report": exc.report.to_dict() if exc.report else None})
-
-    def _get_dataset(session: Session, dataset_id: int) -> Dataset:
-        ds = session.get(Dataset, dataset_id)
-        if ds is None:
-            raise HTTPException(404, f"Dataset {dataset_id} finns inte.")
-        return ds
 
     def _save(session: Session, data, name: str) -> dict:
         ds, created = store_dataset(session, settings, data, name)
@@ -103,7 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {
             "version": APP_VERSION, "code_version": code_version(),
             "live_trading_enabled": settings_module.LIVE_TRADING_ENABLED,
-            "milestone": "M1", "max_upload_mb": settings.max_upload_mb,
+            "milestone": "M2", "max_upload_mb": settings.max_upload_mb,
         }
 
     @app.get("/api/datasets")
@@ -119,12 +90,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/datasets/{dataset_id}")
     def dataset(dataset_id: int, session: Session = Depends(db)):
-        return dataset_out(_get_dataset(session, dataset_id))
+        return dataset_out(get_dataset(session, dataset_id))
 
     @app.get("/api/datasets/{dataset_id}/bars")
     def bars(dataset_id: int, start: datetime | None = None, end: datetime | None = None,
              max_points: int = Query(2_000, ge=10, le=20_000), session: Session = Depends(db)):
-        ds = _get_dataset(session, dataset_id)
+        ds = get_dataset(session, dataset_id)
         try:
             df = load_bars(settings, ds)
         except FileNotFoundError as exc:
@@ -181,6 +152,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         rows = session.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(limit))
         return [audit_out(a) for a in rows]
 
+    app.include_router(lab_router)
     return app
 
 

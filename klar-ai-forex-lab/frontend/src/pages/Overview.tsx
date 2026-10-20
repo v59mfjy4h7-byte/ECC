@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { KillSwitch } from "../components/KillSwitch";
 import { Card, ErrorBox, ScopeBadge, Stat, fmtDate, fmtInt } from "../components/Common";
 import { useLab } from "../context";
 import { useAsync } from "../hooks";
@@ -38,8 +39,12 @@ export default function Overview() {
         )}
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{datasets.length} dataset totalt.</p>
       </Card>
-      <Card title="Konto & risk">
-        <p className="text-sm">Virtuellt konto, equity-kurva, riskstatus och kill switch kommer i M2 (riskmotor) och M5 (paper trading).</p>
+      <Card title="Risk">
+        <KillSwitch />
+        <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
+          Gränser: 1 % risk per affär, netto-RR ≥ 2, 3 % daglig förlustgräns, permanent stopp vid 20 % nedgång (se Inställningar).
+          Virtuellt paper-konto med equity och öppen position kommer i M5.
+        </p>
       </Card>
       <Card title="Senaste experiment">
         {exps.data && exps.data.length > 0 ? (

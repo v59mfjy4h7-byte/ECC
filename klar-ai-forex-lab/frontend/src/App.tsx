@@ -9,6 +9,8 @@ import Market from "./pages/Market";
 import Overview from "./pages/Overview";
 import Placeholder from "./pages/Placeholder";
 import Research from "./pages/Research";
+import Settings from "./pages/Settings";
+import Strategies from "./pages/Strategies";
 
 const NAV = [
   { to: "/", label: "Översikt" },
@@ -96,11 +98,11 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/marknad" element={<Market />} />
-            <Route path="/strategier" element={<Placeholder title="Strategier" milestone="M2" text="Agent A–D (trend, momentum, mean reversion, breakout) portas från prototypen tillsammans med backtest- och riskmotorn." />} />
+            <Route path="/strategier" element={<Strategies />} />
             <Route path="/forskning" element={<Research />} />
             <Route path="/paper" element={<Placeholder title="Paper trading" milestone="M5" text="Virtuellt konto mot live-data med samma risk- och kostnadsmodell som backtest, inklusive drift-övervakning." />} />
             <Route path="/risk" element={<Audit />} />
-            <Route path="/installningar" element={<Placeholder title="Inställningar" milestone="M2" text="Kostnader, kapital och riskgränser. Ändringar av riskgränser kräver signerad konfiguration av en människa och loggas." />} />
+            <Route path="/installningar" element={<Settings />} />
             <Route path="*" element={<Placeholder title="Sidan finns inte" text="Välj en sida i menyn." />} />
           </Routes>
         </main>
